@@ -2,15 +2,24 @@
 
 ChampSim is a trace-based simulator for microarchitecture research.
 
+## About this repository
+
+This repository contains the ChampSim codebase used for PA2 in IIT Bombay's CS 683 (Advanced Computer Architecture), Autumn 2026. The assignment works with a trace-based simulator; see [Resources/README.md](Resources/README.md) for the PA2 announcement and assignment document links.
+
 Useful trace links:
+
 - Traces (access requires an LDAP ID): https://drive.google.com/drive/folders/1zYchkn-M1auZp_l5wRkIzAcDYPkNtW3H?usp=sharing
 - ChampSim wiki: https://champsim.github.io/ChampSim/master/index.html
 
 ## Clone the repository
 
 ```bash
-git clone https://github.com/Shivraj1906/PA2-CS683-2026.git
+git clone --origin upstream https://github.com/cs683-iitb-autumn-2026/pa2.git
+cd pa2
+git remote add origin https://github.com/shubhcodegate/cs683-pa2.git
 ```
+
+For this checkout, `upstream` is the course repository and `origin` is my fork. The current `main` branch tracks `upstream/main`; fetch course updates with `git fetch upstream` and push my work with `git push origin main`.
 
 ## Compile
 
@@ -34,6 +43,7 @@ You can give the binary any name. Custom names help distinguish binaries that us
 ```
 
 Where:
+
 - `${BINARY}`: ChampSim binary compiled by `build_champsim.sh` (for example, `hashed_perceptron-no-no-no-no-no-no-no-lru-lru-lru-lru-lru-lru-lru-lru-1core-baseline`)
 - `${N_WARM}`: number of instructions for the warmup period (25 million)
 - `${N_SIM}`: number of instructions for the detailed simulation (25 million)
@@ -74,4 +84,3 @@ If GCC and G++ are already present in `/usr/bin`, configure the alternatives usi
 sudo update-alternatives --config g++
 sudo update-alternatives --config gcc
 ```
-
