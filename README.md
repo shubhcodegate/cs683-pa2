@@ -14,12 +14,13 @@ Useful trace links:
 ## Clone the repository
 
 ```bash
-git clone --origin upstream https://github.com/cs683-iitb-autumn-2026/pa2.git
-cd pa2
-git remote add origin https://github.com/shubhcodegate/cs683-pa2.git
+git clone --origin origin https://github.com/shubhcodegate/cs683-pa2.git
+cd cs683-pa2
+# Below remote add `upstream` is just optional.
+git remote add upstream https://github.com/cs683-iitb-autumn-2026/pa2.git
 ```
 
-For this checkout, `upstream` is the course repository and `origin` is my fork. The current `main` branch tracks `upstream/main`; fetch course updates with `git fetch upstream` and push my work with `git push origin main`.
+For this checkout, `upstream` is the course repository and `origin` is my fork. The current `main` branch tracks `origin/main`; fetch course updates with `git fetch upstream` and push my work with `git push origin main`.
 
 ## Compile
 
