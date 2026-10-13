@@ -36,6 +36,12 @@ You can give the binary any name. Custom names help distinguish binaries that us
 ./build_champsim.sh no lru baseline
 ```
 
+To build with the instruction-conscious RRIP replacement policy at L2:
+
+```bash
+./build_champsim.sh no irrip irrip
+```
+
 ## Run simulation
 
 ```bash
