@@ -1,0 +1,7 @@
+# Ignore large trace files
+*.trace
+
+bin
+obj
+Resources
+traces
