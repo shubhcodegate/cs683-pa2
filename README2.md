@@ -63,3 +63,55 @@ To run the simulation with the desired number of instructions do below command, 
     -simulation_instructions 25000000   \
     -traces ./traces/Trace1.gz
 ```
+
+# Build with Dockerfile (recommended)
+
+In this way we will first create a docker image named `champsim-gcc7:1.0` and then run that docker image to create the build binary of champsim. Once we get that build binary and we will run that binar outside the container (for faster runtime).
+
+
+Run below command to build Docker Image `champsim-gcc7:1.0`:
+```bash
+docker build -t champsim-gcc7:1.0 .
+```
+To verify:
+```bash
+docker images
+```
+You will see `champsim-gcc7:1.0` in the list.
+
+
+Now to run the docker image:
+
+```bash
+docker run --rm -it   \
+    -v "$PWD:/workspace"   \
+    -w /workspace   \
+    champsim-gcc7:1.0 \
+    /bin/bash
+```
+Now you will be in you docker container with gcc7 now run inside the docker terminal:
+```bash
+./build_champsim.sh no lru baseline
+./bin/hashed_perceptron-no-no-no-no-no-no-no-lru-lru-lru-lru-lru-lru-lru-lru-1core-baseline\
+    -warmup_instructions 1   \
+    -simulation_instructions 1   \
+    -traces ./traces/Trace1.gz
+```
+
+Now you will see something like below at end of output on successful simulation:
+```bash
+CPU 0 Branch Prediction Accuracy: 0% MPKI: 200 Average ROB Occupancy at Mispredict: 9
+Branch types
+NOT_BRANCH: 2 200%
+BRANCH_DIRECT_JUMP: 0 0%
+BRANCH_INDIRECT: 0 0%
+BRANCH_CONDITIONAL: 1 100%
+BRANCH_DIRECT_CALL: 0 0%
+BRANCH_INDIRECT_CALL: 0 0%
+BRANCH_RETURN: 0 0%
+BRANCH_OTHER: 0 0%
+
+DRAM PAGES: 1048576
+Allocated PAGES: 6
+root@0ed6a47f1e9e:/workspace# 
+```
