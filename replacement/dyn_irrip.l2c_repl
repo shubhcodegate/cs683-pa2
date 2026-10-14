@@ -4,17 +4,20 @@
 #define DYN_IRRIP_LEADER_SET_STRIDE 32
 #define DYN_IRRIP_INSTRUCTION_THRESHOLD 0.25
 
+// Leader sets sample instruction/data behavior for the policy decision.
 uint8_t l2_dyn_irrip_rrpv[L2C_SET][L2C_WAY];
 uint64_t l2_dyn_irrip_instruction_accesses;
 uint64_t l2_dyn_irrip_instruction_misses;
 uint64_t l2_dyn_irrip_data_accesses;
 uint64_t l2_dyn_irrip_data_misses;
 
+// Every 32nd set is a leader set for pressure sampling.
 static bool l2_dyn_irrip_is_leader_set(uint32_t set)
 {
     return set % DYN_IRRIP_LEADER_SET_STRIDE == 0;
 }
 
+// Follower sets prefer instructions only when leader-set pressure is high.
 static bool l2_dyn_irrip_prioritize_instructions()
 {
     const uint64_t accesses = l2_dyn_irrip_instruction_accesses + l2_dyn_irrip_data_accesses;
@@ -30,6 +33,7 @@ static bool l2_dyn_irrip_prioritize_instructions()
     return instruction_pressure > DYN_IRRIP_INSTRUCTION_THRESHOLD;
 }
 
+// SRRIP fallback: evict the highest-RRPV block, aging others as needed.
 static uint32_t l2_dyn_irrip_rrip_victim(uint32_t set, const BLOCK *current_set)
 {
     for (uint32_t way = 0; way < L2C_WAY; way++) {
@@ -50,6 +54,7 @@ static uint32_t l2_dyn_irrip_rrip_victim(uint32_t set, const BLOCK *current_set)
     }
 }
 
+// Prefer evicting data blocks when instruction pressure is high.
 static uint32_t l2_dyn_irrip_instruction_victim(uint32_t set, const BLOCK *current_set)
 {
     for (uint32_t way = 0; way < L2C_WAY; way++) {
@@ -80,11 +85,13 @@ void CACHE::l2c_initialize_replacement()
 {
     cout << "Initialize dynamic I-RRIP state for L2C" << endl;
 
+    // Start all blocks as distant and evictable.
     for (uint32_t set = 0; set < L2C_SET; set++) {
         for (uint32_t way = 0; way < L2C_WAY; way++)
             l2_dyn_irrip_rrpv[set][way] = maxRRPV;
     }
 
+    // Reset leader-set pressure counters.
     l2_dyn_irrip_instruction_accesses = 0;
     l2_dyn_irrip_instruction_misses = 0;
     l2_dyn_irrip_data_accesses = 0;
@@ -93,9 +100,11 @@ void CACHE::l2c_initialize_replacement()
 
 uint32_t CACHE::l2c_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
+    // Leader sets always use the default RRIP policy for sampling.
     if (l2_dyn_irrip_is_leader_set(set) || !l2_dyn_irrip_prioritize_instructions())
         return l2_dyn_irrip_rrip_victim(set, current_set);
 
+    // Follower sets can favor instructions under instruction-heavy pressure.
     return l2_dyn_irrip_instruction_victim(set, current_set);
 }
 
@@ -104,6 +113,7 @@ void CACHE::l2c_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
     if ((type == WRITEBACK) && ip)
         assert(0);
 
+    // Track instruction/data access pressure in leader sets.
     if (l2_dyn_irrip_is_leader_set(set)) {
         if (isInstruction) {
             l2_dyn_irrip_instruction_accesses++;
@@ -116,6 +126,7 @@ void CACHE::l2c_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
         }
     }
 
+    // Follow leader pressure: keep instructions hot when pressure is high.
     const bool prioritize_instructions =
         !l2_dyn_irrip_is_leader_set(set) && l2_dyn_irrip_prioritize_instructions();
 
