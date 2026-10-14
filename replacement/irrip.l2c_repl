@@ -1,46 +1,49 @@
 #include "cache.h"
+#include <cstdint>
 
 #define maxRRPV 3
-uint32_t l2_irrip_rrpv[L2C_SET][L2C_WAY];
+
+// Each RRPV is in the range [0, 3], so 8 bits are sufficient.
+// Align the start of the array to a 64-byte cache-line boundary.
+alignas(64) uint8_t l2_irrip_rrpv[L2C_SET][L2C_WAY];
 
 void CACHE::l2c_initialize_replacement()
 {
     cout << "Initialize I-RRIP state for L2C" << endl;
 
     for (uint32_t set = 0; set < L2C_SET; set++) {
-        for (uint32_t way = 0; way < L2C_WAY; way++)
+        for (uint32_t way = 0; way < L2C_WAY; way++) {
             l2_irrip_rrpv[set][way] = maxRRPV;
+        }
     }
 }
 
 uint32_t CACHE::l2c_find_victim(uint32_t cpu, uint64_t instr_id, uint32_t set, const BLOCK *current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
+    // 1. Prefer invalid ways; no RRPV changes are required.
     for (uint32_t way = 0; way < L2C_WAY; way++) {
-        if (!current_set[way].valid)
+        if (!current_set[way].valid) {
             return way;
+        }
     }
 
-    while (1) {
+    // 2. Select a victim. Age the entries only when necessary.
+    while (true) {
+
+        // Prefer a non-instruction cache line with maxRRPV.
         for (uint32_t way = 0; way < L2C_WAY; way++) {
-            if (l2_irrip_rrpv[set][way] == maxRRPV && !current_set[way].instruction)
+            if (l2_irrip_rrpv[set][way] == maxRRPV &&
+                !current_set[way].instruction) {
                 return way;
-        }
-
-        bool has_data_line = false;
-        for (uint32_t way = 0; way < L2C_WAY; way++) {
-            if (!current_set[way].instruction) {
-                has_data_line = true;
-                break;
             }
         }
 
-        if (!has_data_line) {
-            for (uint32_t way = 0; way < L2C_WAY; way++) {
-                if (l2_irrip_rrpv[set][way] == maxRRPV)
-                    return way;
-            }
-        }
+        // Fall back to any cache line with maxRRPV.
+        for (uint32_t way = 0; way < L2C_WAY; way++)
+            if (l2_irrip_rrpv[set][way] == maxRRPV)
+                return way;
 
+        // No entry has maxRRPV: age all entries and search again.
         for (uint32_t way = 0; way < L2C_WAY; way++) {
             if (l2_irrip_rrpv[set][way] < maxRRPV)
                 l2_irrip_rrpv[set][way]++;
