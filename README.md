@@ -42,6 +42,12 @@ To build with the instruction-conscious RRIP replacement policy at L2:
 ./build_champsim.sh no irrip irrip
 ```
 
+To build with the set-dueling dynamic I-RRIP policy at L2:
+
+```bash
+./build_champsim.sh no dyn_irrip dyn_irrip
+```
+
 ## Run simulation
 
 ```bash
