@@ -117,4 +117,12 @@ root@0ed6a47f1e9e:/workspace#
 ```
 
 
-testing to check if merge possible
+## Building using `mybuild.sh`
+`mybuild.sh` runs the compile in the docker container and give the output binary.
+To run do:
+```bash
+./mybuild.sh spp lru baseline
+./bin/hashed_perceptron-no-spp-no-no-no-no-no-lru-lru-lru-lru-lru-lru-lru-lru-1core-baseline -warmup_instructions 25000000   \
+    -simulation_instructions 25000000   \
+    -traces ./traces/Trace1.gz
+```
