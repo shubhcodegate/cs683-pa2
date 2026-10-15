@@ -113,6 +113,13 @@ void CACHE::l2c_update_replacement_state(uint32_t cpu, uint32_t set, uint32_t wa
     if ((type == WRITEBACK) && ip)
         assert(0);
 
+    // Keep speculative lines easy to evict until a demand access proves useful.
+    if (type == PREFETCH) {
+        if (!hit)
+            l2_dyn_irrip_rrpv[set][way] = maxRRPV;
+        return;
+    }
+
     // Track instruction/data access pressure in leader sets.
     if (l2_dyn_irrip_is_leader_set(set)) {
         if (isInstruction) {

@@ -126,3 +126,13 @@ To run do:
     -simulation_instructions 25000000   \
     -traces ./traces/Trace1.gz
 ```
+
+# Commands used to build and test
+To generate and run final after Task 3:
+```bash
+./mybuild.sh spp dyn_irrip baseline
+./bin/hashed_perceptron-no-spp-no-no-no-no-no-lru-lru-lru-dyn_irrip-lru-lru-lru-lru-1core-baseline \
+-warmup_instructions 25000000      \
+-simulation_instructions 25000000       \
+-traces ./traces/Trace1.gz > ./results/task3-spp-dynirrip-trace1.txt
+```

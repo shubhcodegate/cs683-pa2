@@ -191,3 +191,85 @@ $$
 The design samples approximately 3.125% of cache sets and uses instruction pressure to select the policy for follower sets. This is a threshold-based adaptive I-RRIP design rather than conventional D-RRIP, which typically uses SRRIP and BRRIP leader sets with a policy-selection counter.
 
 Evaluate the stride and threshold experimentally using L2 miss rate, IPC, and execution cycles. Compare alternative settings to determine whether they improve performance across different workloads.
+
+# Task 3: SPP-Aware Dynamic I-RRIP
+
+## Evaluation Against the Task 1A Baseline
+
+The table compares the no-prefetch Task 1A baseline with the combined Task 3 configuration (L1D SPP plus dynamic I-RRIP at L2). Each pair uses the same trace and 25M warmup plus 25M ROI instructions. `Speedup` is the IPC ratio; the percentage in parentheses is the IPC improvement over baseline. Baseline prefetch accuracy is N/A because no prefetcher ran.
+
+| Trace | Baseline IPC | Task 3 IPC | Speedup vs. baseline | L1D SPP accuracy | L2C prefetch accuracy |
+|---|---:|---:|---:|---:|---:|
+| Trace1 | 0.232345 | 0.233764 | 1.0061x (+0.61%) | 47.7047% | 2.0935% |
+| Trace2 | 0.251158 | 0.257056 | 1.0235x (+2.35%) | 31.1806% | 1.9955% |
+| Trace3 | 0.382065 | 0.388157 | 1.0159x (+1.59%) | 33.7758% | 1.8402% |
+
+The primary prefetch accuracy is ChampSim's L1D accuracy: useful load prefetches divided by prefetches issued to the lower level. The optional L2C accuracy is the corresponding reported L2C prefetch statistic; it is low and should not be confused with the L1D SPP accuracy or the SPP's separate internal useful/issued counter.
+
+### Load MPKI and Coverage
+
+| Trace | L1D load MPKI baseline | L1D load MPKI Task 3 | L2C load MPKI baseline | L2C load MPKI Task 3 | L2 data load MPKI baseline | L2 data load MPKI Task 3 | L2 instruction load MPKI baseline | L2 instruction load MPKI Task 3 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Trace1 | 10.6780 | 9.7462 | 17.6956 | 16.7282 | 7.3580 | 6.8226 | 10.3377 | 9.9055 |
+| Trace2 | 13.5379 | 13.3798 | 27.3568 | 21.9914 | 8.5035 | 8.9386 | 18.8533 | 13.0528 |
+| Trace3 | 3.4034 | 2.8789 | 3.9542 | 3.1566 | 2.8302 | 2.1338 | 1.1241 | 1.0228 |
+
+Coverage below is calculated for each reported level as `(baseline load MPKI - Task 3 load MPKI) / baseline load MPKI`. Positive values mean fewer load misses per thousand instructions; negative values mean the miss rate increased. The L2 component changes include both SPP traffic and the replacement-policy change, so they are comparative outcomes rather than isolated prefetch coverage.
+
+| Trace | L1D coverage | L2C load MPKI reduction | L2 data load MPKI reduction | L2 instruction load MPKI reduction |
+|---|---:|---:|---:|---:|
+| Trace1 | 8.73% | 5.47% | 7.28% | 4.18% |
+| Trace2 | 1.17% | 19.61% | -5.12% | 30.77% |
+| Trace3 | 15.41% | 20.17% | 24.61% | 9.01% |
+
+![Task 3 paired baseline and combined SPP plus dynamic I-RRIP results](results/task3-spp-dynirrip-metrics.svg)
+
+### Prefetch-Aware Replacement Rationale
+
+The L2 replacement update checks the incoming request type before applying the normal dynamic I-RRIP update. When `type == PREFETCH`, a newly inserted line is assigned `maxRRPV` (3), making it the first eviction candidate, and the update returns without applying demand-hit promotion or updating the leader-set instruction/data counters. The design treats a prefetch as speculative: it should not displace a line already shown to be useful, and its arrival should not bias the demand-trained policy selector.
+
+If a later demand access hits that prefetched line, the request is no longer typed as `PREFETCH`; the normal replacement update then promotes it according to the active policy. This allows useful prefetches to earn protection through demonstrated demand reuse, while unused prefetches remain easy to evict. Leader sets continue to sample demand behavior for SRRIP, while follower sets use the dynamic instruction-priority decision, so prefetch traffic does not distort the set-dueling signal.
+
+This is a conservative policy: a useful prefetch can still be evicted before demand arrives. The tradeoff is intentional because protecting every speculative line would let inaccurate prefetch streams pollute L2 and evict demand-fetched instruction or data lines.
+
+### Interpretation and Comparison Limit
+
+Against the Task 1A baseline, the combined Task 3 configuration improves IPC on all three traces. Compared directly with dynamic-I-RRIP-only, it also improves IPC on all three traces. Against standalone SPP, it is effectively tied on Trace1 and Trace3, and is 0.0013% lower on Trace1; therefore, these results do not support a strict claim that Task 3 outperforms standalone SPP on every trace. The Task 3 L2 data MPKI is also higher than SPP-only on Trace1 and Trace3, although the combined configuration reduces total L2 load MPKI on those traces. Report the small IPC differences as measured rather than treating them as meaningful wins without repeated-run variability analysis.
+
+## Task 3 Comparison with Standalone Policies
+
+The following comparison uses the Task 1A baseline, Task 1B SPP-only runs, Task 2B dynamic-I-RRIP-only runs, and combined Task 3 runs. Each run uses 25M warmup and 25M simulation instructions. Speedup is relative to the matching Task 1A baseline, while the final two columns directly compare Task 3 IPC to each standalone configuration.
+
+| Trace | SPP-only IPC (speedup) | Dynamic-I-RRIP-only IPC (speedup) | Task 3 IPC (speedup) | Task 3 vs. SPP IPC | Task 3 vs. dynamic-I-RRIP IPC |
+|---|---:|---:|---:|---:|---:|
+| Trace1 | 0.233767 (1.0061x) | 0.232236 (0.9995x) | 0.233764 (1.0061x) | -0.0013% | +0.6580% |
+| Trace2 | 0.251450 (1.0012x) | 0.256435 (1.0210x) | 0.257056 (1.0235x) | +2.2295% | +0.2422% |
+| Trace3 | 0.388125 (1.0159x) | 0.381975 (0.9998x) | 0.388157 (1.0159x) | +0.0082% | +1.6184% |
+
+L1D prefetch accuracy below is ChampSim's `L1D USEFUL LOAD PREFETCHES` accuracy field; it is N/A when SPP is disabled. L1D coverage is `(Task 1A baseline L1D load MPKI - configuration L1D load MPKI) / Task 1A baseline L1D load MPKI`. Negative coverage indicates a small increase in L1D load MPKI.
+
+| Trace | Configuration | L1D load MPKI | L1D SPP accuracy | L1D coverage |
+|---|---|---:|---:|---:|
+| Trace1 | SPP-only | 9.7430 | 47.7926% | 8.7563% |
+| Trace1 | Dynamic-I-RRIP-only | 10.6784 | N/A | -0.0037% |
+| Trace1 | Task 3 combined | 9.7462 | 47.7047% | 8.7264% |
+| Trace2 | SPP-only | 13.3757 | 31.3374% | 1.1981% |
+| Trace2 | Dynamic-I-RRIP-only | 13.5413 | N/A | -0.0251% |
+| Trace2 | Task 3 combined | 13.3798 | 31.1806% | 1.1678% |
+| Trace3 | SPP-only | 2.8792 | 33.7112% | 15.4021% |
+| Trace3 | Dynamic-I-RRIP-only | 3.4035 | N/A | -0.0012% |
+| Trace3 | Task 3 combined | 2.8789 | 33.7758% | 15.4126% |
+
+| Trace | Configuration | L2C load MPKI | L2 data load MPKI | L2 instruction load MPKI |
+|---|---|---:|---:|---:|
+| Trace1 | SPP-only | 16.9189 | 6.5280 | 10.3909 |
+| Trace1 | Dynamic-I-RRIP-only | 17.6013 | 7.6895 | 9.9118 |
+| Trace1 | Task 3 combined | 16.7282 | 6.8226 | 9.9055 |
+| Trace2 | SPP-only | 27.4117 | 8.3558 | 19.0558 |
+| Trace2 | Dynamic-I-RRIP-only | 22.2530 | 9.1060 | 13.1470 |
+| Trace2 | Task 3 combined | 21.9914 | 8.9386 | 13.0528 |
+| Trace3 | SPP-only | 3.2648 | 2.1090 | 1.1558 |
+| Trace3 | Dynamic-I-RRIP-only | 3.9013 | 2.8730 | 1.0282 |
+| Trace3 | Task 3 combined | 3.1566 | 2.1338 | 1.0228 |
+
+![Task 3 comparison against SPP-only and dynamic-I-RRIP-only](results/task3-policy-comparison.svg)
