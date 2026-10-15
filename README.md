@@ -11,6 +11,25 @@ Useful trace links:
 - Traces (access requires an LDAP ID): https://drive.google.com/drive/folders/1zYchkn-M1auZp_l5wRkIzAcDYPkNtW3H?usp=sharing
 - ChampSim wiki: https://champsim.github.io/ChampSim/master/index.html
 
+## Evaluator guide
+
+1. Start with [Summary.pdf](Summary.pdf) for the assignment results, plots, and design rationale. The editable source is [summary.md](summary.md).
+2. Simulation outputs are in [`results/`](results/). Files are named by task/configuration and trace, for example `task1a-baseline-trace1.txt`, `task1b-spp-1.0-trace1.txt`, `task2-dynirrip-trace1.txt`, and `task3-spp-dynirrip-trace1.txt`.
+3. Main implementations: Task 1B SPP is in [`prefetcher/spp.l1d_pref`](prefetcher/spp.l1d_pref), and Task 2B/Task 3 dynamic I-RRIP is in [`replacement/dyn_irrip.l2c_repl`](replacement/dyn_irrip.l2c_repl). Task 2A's I-RRIP policy is in [`replacement/irrip.l2c_repl`](replacement/irrip.l2c_repl).
+4. Trace files are not included in the repository. Download the course traces using the link above and place the required `Trace1.gz`, `Trace2.gz`, and `Trace3.gz` files in `traces/` before running simulations.
+
+To reproduce the combined Task 3 configuration for Trace1, build with Docker/GCC 7 and run 25M warmup plus 25M simulation instructions:
+
+```bash
+./mybuild.sh spp dyn_irrip baseline
+./bin/hashed_perceptron-no-spp-no-no-no-no-no-lru-lru-lru-dyn_irrip-lru-lru-lru-lru-1core-baseline \
+	-warmup_instructions 25000000 \
+	-simulation_instructions 25000000 \
+	-traces ./traces/Trace1.gz
+```
+
+For build prerequisites and other configurations, see [README2.md](README2.md) and the compile/run instructions below.
+
 ## Clone the repository
 
 ```bash
