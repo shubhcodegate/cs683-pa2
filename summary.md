@@ -234,4 +234,42 @@ This is a conservative policy: a useful prefetch can still be evicted before dem
 
 ### Interpretation and Comparison Limit
 
-Against the supplied Task 1A baseline, the combined Task 3 configuration improves IPC on all three traces and reduces aggregate L2 load MPKI on all three. L1D coverage varies substantially, and Trace2's L2 data load MPKI increases by 5.12% even as its instruction MPKI falls by 30.77%. These outcomes show that the combined configuration helps overall IPC for these inputs, but the attached results do not include standalone SPP or dynamic-I-RRIP-only runs. Therefore, they do not establish that Task 3 outperforms each of those two intermediate configurations, as the assignment asks. Add paired Task 1B-only and Task 2B-only results to support that specific claim.
+Against the Task 1A baseline, the combined Task 3 configuration improves IPC on all three traces. Compared directly with dynamic-I-RRIP-only, it also improves IPC on all three traces. Against standalone SPP, it is effectively tied on Trace1 and Trace3, and is 0.0013% lower on Trace1; therefore, these results do not support a strict claim that Task 3 outperforms standalone SPP on every trace. The Task 3 L2 data MPKI is also higher than SPP-only on Trace1 and Trace3, although the combined configuration reduces total L2 load MPKI on those traces. Report the small IPC differences as measured rather than treating them as meaningful wins without repeated-run variability analysis.
+
+## Task 3 Comparison with Standalone Policies
+
+The following comparison uses the Task 1A baseline, Task 1B SPP-only runs, Task 2B dynamic-I-RRIP-only runs, and combined Task 3 runs. Each run uses 25M warmup and 25M simulation instructions. Speedup is relative to the matching Task 1A baseline, while the final two columns directly compare Task 3 IPC to each standalone configuration.
+
+| Trace | SPP-only IPC (speedup) | Dynamic-I-RRIP-only IPC (speedup) | Task 3 IPC (speedup) | Task 3 vs. SPP IPC | Task 3 vs. dynamic-I-RRIP IPC |
+|---|---:|---:|---:|---:|---:|
+| Trace1 | 0.233767 (1.0061x) | 0.232236 (0.9995x) | 0.233764 (1.0061x) | -0.0013% | +0.6580% |
+| Trace2 | 0.251450 (1.0012x) | 0.256435 (1.0210x) | 0.257056 (1.0235x) | +2.2295% | +0.2422% |
+| Trace3 | 0.388125 (1.0159x) | 0.381975 (0.9998x) | 0.388157 (1.0159x) | +0.0082% | +1.6184% |
+
+L1D prefetch accuracy below is ChampSim's `L1D USEFUL LOAD PREFETCHES` accuracy field; it is N/A when SPP is disabled. L1D coverage is `(Task 1A baseline L1D load MPKI - configuration L1D load MPKI) / Task 1A baseline L1D load MPKI`. Negative coverage indicates a small increase in L1D load MPKI.
+
+| Trace | Configuration | L1D load MPKI | L1D SPP accuracy | L1D coverage |
+|---|---|---:|---:|---:|
+| Trace1 | SPP-only | 9.7430 | 47.7926% | 8.7563% |
+| Trace1 | Dynamic-I-RRIP-only | 10.6784 | N/A | -0.0037% |
+| Trace1 | Task 3 combined | 9.7462 | 47.7047% | 8.7264% |
+| Trace2 | SPP-only | 13.3757 | 31.3374% | 1.1981% |
+| Trace2 | Dynamic-I-RRIP-only | 13.5413 | N/A | -0.0251% |
+| Trace2 | Task 3 combined | 13.3798 | 31.1806% | 1.1678% |
+| Trace3 | SPP-only | 2.8792 | 33.7112% | 15.4021% |
+| Trace3 | Dynamic-I-RRIP-only | 3.4035 | N/A | -0.0012% |
+| Trace3 | Task 3 combined | 2.8789 | 33.7758% | 15.4126% |
+
+| Trace | Configuration | L2C load MPKI | L2 data load MPKI | L2 instruction load MPKI |
+|---|---|---:|---:|---:|
+| Trace1 | SPP-only | 16.9189 | 6.5280 | 10.3909 |
+| Trace1 | Dynamic-I-RRIP-only | 17.6013 | 7.6895 | 9.9118 |
+| Trace1 | Task 3 combined | 16.7282 | 6.8226 | 9.9055 |
+| Trace2 | SPP-only | 27.4117 | 8.3558 | 19.0558 |
+| Trace2 | Dynamic-I-RRIP-only | 22.2530 | 9.1060 | 13.1470 |
+| Trace2 | Task 3 combined | 21.9914 | 8.9386 | 13.0528 |
+| Trace3 | SPP-only | 3.2648 | 2.1090 | 1.1558 |
+| Trace3 | Dynamic-I-RRIP-only | 3.9013 | 2.8730 | 1.0282 |
+| Trace3 | Task 3 combined | 3.1566 | 2.1338 | 1.0228 |
+
+![Task 3 comparison against SPP-only and dynamic-I-RRIP-only](results/task3-policy-comparison.svg)
