@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1040" viewBox="0 0 1200 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Task 1B SPP results across three traces</title>
+  <desc id="desc">Five horizontal bar charts compare baseline and SPP IPC and L1D load MPKI, and show speedup, prefetch accuracy, and MPKI-reduction coverage for Trace1 through Trace3.</desc>
+  <rect width="1200" height="1040" fill="#f3f6f5"/>
+  <text x="40" y="48" fill="#18333b" font-family="sans-serif" font-size="27" font-weight="700">Task 1B / SPP 1.0</text>
+  <text x="40" y="76" fill="#5a6a70" font-family="sans-serif" font-size="15">25M warmup + 25M ROI instructions per run · baseline versus SPP</text>
+
+  <g font-family="sans-serif">
+    <rect x="35" y="100" width="550" height="300" rx="5" fill="#ffffff" stroke="#d7e0df"/>
+    <text x="58" y="132" fill="#18333b" font-size="18" font-weight="700">IPC</text>
+    <rect x="367" y="119" width="12" height="12" fill="#89969b"/><text x="385" y="130" fill="#52636a" font-size="12">Baseline</text>
+    <rect x="465" y="119" width="12" height="12" fill="#138779"/><text x="483" y="130" fill="#52636a" font-size="12">SPP</text>
+    <line x1="145" y1="154" x2="525" y2="154" stroke="#d8e0df"/>
+    <line x1="145" y1="154" x2="145" y2="352" stroke="#e3e9e8"/><line x1="335" y1="154" x2="335" y2="352" stroke="#e3e9e8"/><line x1="525" y1="154" x2="525" y2="352" stroke="#e3e9e8"/>
+    <text x="58" y="204" fill="#344a50" font-size="14">Trace1</text>
+    <rect x="145" y="180" width="196" height="11" fill="#89969b"/><text x="347" y="190" fill="#52636a" font-size="12">0.232345</text>
+    <rect x="145" y="197" width="198" height="11" fill="#138779"/><text x="349" y="207" fill="#138779" font-size="12">0.233767</text>
+    <text x="58" y="264" fill="#344a50" font-size="14">Trace2</text>
+    <rect x="145" y="240" width="212" height="11" fill="#89969b"/><text x="363" y="250" fill="#52636a" font-size="12">0.251158</text>
+    <rect x="145" y="257" width="212" height="11" fill="#138779"/><text x="363" y="267" fill="#138779" font-size="12">0.251450</text>
+    <text x="58" y="324" fill="#344a50" font-size="14">Trace3</text>
+    <rect x="145" y="300" width="323" height="11" fill="#89969b"/><text x="474" y="310" fill="#52636a" font-size="12">0.382065</text>
+    <rect x="145" y="317" width="328" height="11" fill="#138779"/><text x="479" y="327" fill="#138779" font-size="12">0.388125</text>
+    <text x="141" y="372" fill="#738187" font-size="11">0</text><text x="324" y="372" fill="#738187" font-size="11">0.225</text><text x="516" y="372" fill="#738187" font-size="11">0.45</text>
+
+    <rect x="615" y="100" width="550" height="300" rx="5" fill="#ffffff" stroke="#d7e0df"/>
+    <text x="638" y="132" fill="#18333b" font-size="18" font-weight="700">Speedup over baseline</text>
+    <line x1="710" y1="154" x2="1090" y2="154" stroke="#d8e0df"/>
+    <line x1="710" y1="154" x2="710" y2="352" stroke="#e3e9e8"/><line x1="900" y1="154" x2="900" y2="352" stroke="#e3e9e8"/><line x1="1090" y1="154" x2="1090" y2="352" stroke="#e3e9e8"/>
+    <text x="638" y="204" fill="#344a50" font-size="14">Trace1</text><rect x="710" y="190" width="116" height="14" fill="#d18437"/><text x="834" y="202" fill="#9a5b20" font-size="12">0.6120%</text>
+    <text x="638" y="264" fill="#344a50" font-size="14">Trace2</text><rect x="710" y="250" width="22" height="14" fill="#d18437"/><text x="740" y="262" fill="#9a5b20" font-size="12">0.1163%</text>
+    <text x="638" y="324" fill="#344a50" font-size="14">Trace3</text><rect x="710" y="310" width="301" height="14" fill="#d18437"/><text x="1019" y="322" fill="#9a5b20" font-size="12">1.5861%</text>
+    <text x="706" y="372" fill="#738187" font-size="11">0</text><text x="892" y="372" fill="#738187" font-size="11">1%</text><text x="1081" y="372" fill="#738187" font-size="11">2%</text>
+
+    <rect x="35" y="420" width="550" height="300" rx="5" fill="#ffffff" stroke="#d7e0df"/>
+    <text x="58" y="452" fill="#18333b" font-size="18" font-weight="700">L1D load MPKI</text>
+    <rect x="367" y="439" width="12" height="12" fill="#89969b"/><text x="385" y="450" fill="#52636a" font-size="12">Baseline</text>
+    <rect x="465" y="439" width="12" height="12" fill="#138779"/><text x="483" y="450" fill="#52636a" font-size="12">SPP</text>
+    <line x1="145" y1="474" x2="525" y2="474" stroke="#d8e0df"/>
+    <line x1="145" y1="474" x2="145" y2="672" stroke="#e3e9e8"/><line x1="335" y1="474" x2="335" y2="672" stroke="#e3e9e8"/><line x1="525" y1="474" x2="525" y2="672" stroke="#e3e9e8"/>
+    <text x="58" y="524" fill="#344a50" font-size="14">Trace1</text><rect x="145" y="500" width="270" height="11" fill="#89969b"/><text x="421" y="510" fill="#52636a" font-size="12">10.6780</text><rect x="145" y="517" width="247" height="11" fill="#138779"/><text x="398" y="527" fill="#138779" font-size="12">9.7430</text>
+    <text x="58" y="584" fill="#344a50" font-size="14">Trace2</text><rect x="145" y="560" width="343" height="11" fill="#89969b"/><text x="494" y="570" fill="#52636a" font-size="12">13.5379</text><rect x="145" y="577" width="338" height="11" fill="#138779"/><text x="489" y="587" fill="#138779" font-size="12">13.3757</text>
+    <text x="58" y="644" fill="#344a50" font-size="14">Trace3</text><rect x="145" y="620" width="86" height="11" fill="#89969b"/><text x="237" y="630" fill="#52636a" font-size="12">3.40344</text><rect x="145" y="637" width="73" height="11" fill="#138779"/><text x="224" y="647" fill="#138779" font-size="12">2.87924</text>
+    <text x="141" y="692" fill="#738187" font-size="11">0</text><text x="328" y="692" fill="#738187" font-size="11">7.5</text><text x="516" y="692" fill="#738187" font-size="11">15</text>
+
+    <rect x="615" y="420" width="550" height="300" rx="5" fill="#ffffff" stroke="#d7e0df"/>
+    <text x="638" y="452" fill="#18333b" font-size="18" font-weight="700">L1D prefetch accuracy</text>
+    <line x1="710" y1="474" x2="1090" y2="474" stroke="#d8e0df"/><line x1="710" y1="474" x2="710" y2="672" stroke="#e3e9e8"/><line x1="900" y1="474" x2="900" y2="672" stroke="#e3e9e8"/><line x1="1090" y1="474" x2="1090" y2="672" stroke="#e3e9e8"/>
+    <text x="638" y="524" fill="#344a50" font-size="14">Trace1</text><rect x="710" y="510" width="303" height="14" fill="#278ca0"/><text x="1021" y="522" fill="#236e7c" font-size="12">47.7926%</text>
+    <text x="638" y="584" fill="#344a50" font-size="14">Trace2</text><rect x="710" y="570" width="199" height="14" fill="#278ca0"/><text x="917" y="582" fill="#236e7c" font-size="12">31.3374%</text>
+    <text x="638" y="644" fill="#344a50" font-size="14">Trace3</text><rect x="710" y="630" width="214" height="14" fill="#278ca0"/><text x="932" y="642" fill="#236e7e" font-size="12">33.7112%</text>
+    <text x="706" y="692" fill="#738187" font-size="11">0</text><text x="892" y="692" fill="#738187" font-size="11">30%</text><text x="1081" y="692" fill="#738187" font-size="11">60%</text>
+
+    <rect x="320" y="740" width="560" height="270" rx="5" fill="#ffffff" stroke="#d7e0df"/>
+    <text x="344" y="772" fill="#18333b" font-size="18" font-weight="700">L1D coverage (MPKI reduction)</text>
+    <line x1="415" y1="794" x2="795" y2="794" stroke="#d8e0df"/><line x1="415" y1="794" x2="415" y2="962" stroke="#e3e9e8"/><line x1="605" y1="794" x2="605" y2="962" stroke="#e3e9e8"/><line x1="795" y1="794" x2="795" y2="962" stroke="#e3e9e8"/>
+    <text x="344" y="839" fill="#344a50" font-size="14">Trace1</text><rect x="415" y="825" width="166" height="14" fill="#c66d62"/><text x="589" y="837" fill="#985149" font-size="12">8.7563%</text>
+    <text x="344" y="899" fill="#344a50" font-size="14">Trace2</text><rect x="415" y="885" width="23" height="14" fill="#c66d62"/><text x="446" y="897" fill="#985149" font-size="12">1.1981%</text>
+    <text x="344" y="959" fill="#344a50" font-size="14">Trace3</text><rect x="415" y="945" width="293" height="14" fill="#c66d62"/><text x="716" y="957" fill="#985149" font-size="12">15.4021%</text>
+    <text x="411" y="984" fill="#738187" font-size="11">0</text><text x="597" y="984" fill="#738187" font-size="11">10%</text><text x="786" y="984" fill="#738187" font-size="11">20%</text>
+  </g>
+  <text x="40" y="1030" fill="#68777c" font-family="sans-serif" font-size="12">Coverage = (baseline L1D load MPKI - SPP L1D load MPKI) / baseline L1D load MPKI.</text>
+</svg>
