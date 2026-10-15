@@ -36,11 +36,23 @@ You can give the binary any name. Custom names help distinguish binaries that us
 ./build_champsim.sh no lru baseline
 ```
 
+To build with the instruction-conscious RRIP replacement policy at L2:
+
+```bash
+./build_champsim.sh no irrip irrip
+```
+
+To build with the set-dueling dynamic I-RRIP policy at L2:
+
+```bash
+./build_champsim.sh no dyn_irrip dyn_irrip
+```
+
 ## Run simulation
 
 ```bash
 ./bin/[BINARY] -warmup_instructions [N_WARM] -simulation_instructions [N_SIM] -traces [TRACE_DIR]/[TRACE]
-./bin/hashed_perceptron-no-no-no-no-no-no-no-lru-lru-lru-lru-lru-lru-lru-lru-1core-baseline -warmup_instructions 25000000 -simulation_instructions 25000000 -traces ../traces/trace1.champsimtrace.xz
+./bin/hashed_perceptron-no-no-no-no-no-no-no-lru-lru-lru-lru-lru-lru-lru-lru-1core-baseline -warmup_instructions 25000000 -simulation_instructions 25000000 -traces ./traces/Trace1.gz
 ```
 
 Where:

@@ -68,3 +68,126 @@ On a typical 64-bit C++ ABI, structure alignment adds padding: `SPP_TRACKER` occ
 ## Throttling Rationale
 
 The controller starts at degree 4 while fewer than eight prefetches have been issued, then applies a monotonic accuracy schedule using its cumulative internal useful/issued ratio: degree 4 at accuracy at least 80%, degree 3 at at least 60%, degree 2 at at least 35%, and degree 1 below 35%. This keeps the minimum degree nonzero while reducing aggressiveness as observed usefulness falls; stronger accuracy earns more lookahead. The 35%, 60%, and 80% boundaries are heuristic design choices in this implementation, not thresholds selected by a documented sensitivity sweep. All three supplied runs finished at degree 2, consistent with their internal final accuracies falling in the 35%-to-60% range. A future tuning study should compare several threshold schedules and degrees against IPC, MPKI, accuracy, and coverage before claiming these boundaries are optimal.
+
+# Task 2A: Instruction-Conscious L2 Replacement Policy (I-RRIP)
+
+## 1. Overview of RRPV
+
+The implementation uses Re-Reference Prediction Value (RRPV) to estimate the likelihood of a cache line being accessed again. With `maxRRPV = 3`, RRPV ranges from 0 to 3.
+
+| RRPV | Meaning |
+|---:|---|
+| 0 | Strong protection; predicted near-term reuse |
+| 1 | Relatively high protection |
+| 2 | Lower protection |
+| 3 | Eligible for eviction |
+
+The policy modifies conventional SRRIP to prioritize instruction lines over data lines while retaining the core RRIP replacement mechanism.
+
+## 2. Insertion Logic
+
+For a cache miss, the incoming line receives RRPV 1 if it is an instruction and RRPV 2 if it is data.
+
+**Rationale:** Conventional SRRIP inserts lines at `maxRRPV - 1` (2). This conservative insertion avoids excessively protecting lines that may never be reused. I-RRIP assigns instruction lines a lower initial RRPV to reduce their likelihood of early eviction, particularly when instruction reuse is high.
+
+## 3. Promotion Logic
+
+On a cache hit, instruction lines receive RRPV 0, while data lines receive RRPV 1.
+
+**Rationale:** A hit suggests that the line may be reused. Conventional SRRIP promotes both types of lines to RRPV 0, but I-RRIP gives instruction lines stronger protection. Data lines remain protected, although they are closer to becoming eviction candidates.
+
+This distinction can benefit workloads with frequently executed code, such as loops. However, it may disadvantage workloads with highly reusable data. The best promotion values depend on workload characteristics.
+
+## 4. Eviction Logic
+
+Victim selection follows two preferences:
+
+1. Select a non-instruction line whose RRPV equals `maxRRPV`.
+2. If no such line exists, select any line whose RRPV equals `maxRRPV`.
+
+**Rationale:** Conventional SRRIP selects the first line with maximum RRPV, regardless of its type. I-RRIP adds an instruction-aware preference while retaining RRPV as the primary eviction criterion.
+
+For example, if both an instruction line and a data line have RRPV 3, the data line is preferred. If all eligible candidates are instruction lines, the fallback ensures that replacement can still proceed.
+
+This protects instruction lines without making them immune to eviction.
+
+## 5. Aging and Invalid-Way Handling
+
+When no line has reached maximum RRPV, the algorithm increments all RRPVs below 3 and searches again. This preserves the core RRIP mechanism and allows stale instruction lines to become eviction candidates.
+
+The implementation also checks for invalid ways first. An invalid way can accommodate a new line without evicting existing data, avoiding unnecessary replacement work.
+
+## 6. Summary of Design Decisions
+
+| Component | Decision | Rationale |
+|---|---|---|
+| Insertion | Modified | Instruction lines start at RRPV 1; data lines at 2 |
+| Promotion | Modified | Instruction hits receive RRPV 0; data hits receive 1 |
+| Victim selection | Modified | Prefer eligible data lines over instruction lines |
+| Aging | Retained | Preserve RRIP-based reuse prediction |
+| Invalid-way handling | Retained | Avoid evicting valid lines unnecessarily |
+
+## 7. Expected Benefits and Limitations
+
+I-RRIP may improve instruction retention, reduce instruction-cache misses, and improve IPC when instruction reuse is important. However, stronger instruction protection can evict frequently reused data, potentially increasing data-cache misses.
+
+Evaluate the policy against conventional SRRIP using identical workloads and simulator configurations. Measure:
+
+- L2 instruction and data miss rates.
+- Overall L2 miss rate.
+- IPC and execution cycles.
+- Total simulation time.
+
+**Note:** This implementation is a fixed instruction-aware policy, unlike dynamic I-RRIP, which uses leader-set statistics to choose between replacement policies. Here, instruction-aware insertion, promotion, and victim selection are always active.
+
+# Task 2B: Dynamic I-RRIP
+
+## 1. Overview
+
+Dynamic RRIP adapts the cache insertion policy based on workload behavior rather than using a fixed policy for all cache sets. In this implementation, the policy switches between standard SRRIP and instruction-aware RRIP based on observed instruction-access pressure.
+
+## 2. Choice of Leader Sets
+
+The implementation uses a leader-set stride of **32**, selecting approximately **1 out of every 32 sets (3.125%)** as leader sets.
+
+The rationale is to collect workload statistics while keeping monitoring overhead low and leaving most cache sets available for normal operation. Too few leader sets may produce unrepresentative statistics, while too many reduce the number of follower sets. A stride of 32 is a practical design choice whose effectiveness should be validated experimentally.
+
+## 3. Decision Logic
+
+The policy uses instruction-access pressure to decide which insertion policy follower sets should use.
+
+The pressure metric is:
+
+$$
+P = \frac{I_A + I_M}{A + M}
+$$
+
+Where:
+
+- $I_A$: Instruction accesses observed by leader sets.
+- $I_M$: Instruction misses observed by leader sets.
+- $A$: Total accesses observed by leader sets.
+- $M$: Total misses observed by leader sets.
+
+The policy-selection rule is:
+
+- If $P \leq 0.25$, select SRRIP.
+- If $P > 0.25$, select instruction-aware RRIP.
+
+The threshold of **0.25** requires instruction pressure to exceed 25% before switching to instruction-aware RRIP.
+
+- **Low instruction pressure:** SRRIP avoids unnecessarily favoring instruction lines.
+- **High instruction pressure:** Instruction-aware RRIP provides greater protection for instruction lines against eviction.
+- **Initial state:** The policy defaults to SRRIP until accesses are observed.
+
+**Implementation note:** Verify whether instruction misses are already included in instruction accesses. If so, adding them again double-counts misses. If total accesses include both instruction and data accesses, a conventional instruction-access fraction would instead be:
+
+$$
+P = \frac{I_A}{A}
+$$
+
+## 4. Summary and Evaluation
+
+The design samples approximately 3.125% of cache sets and uses instruction pressure to select the policy for follower sets. This is a threshold-based adaptive I-RRIP design rather than conventional D-RRIP, which typically uses SRRIP and BRRIP leader sets with a policy-selection counter.
+
+Evaluate the stride and threshold experimentally using L2 miss rate, IPC, and execution cycles. Compare alternative settings to determine whether they improve performance across different workloads.
