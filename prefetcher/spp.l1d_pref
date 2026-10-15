@@ -1,24 +1,268 @@
 #include "cache.h"
+#include <algorithm>
 
+#define SPP_TRACKER_COUNT 64
+#define SPP_HISTORY 8
+#define SPP_MAX_DEGREE 4
+#define SPP_SIGNATURE 4
 
-void CACHE::l1d_prefetcher_initialize() 
-{
+struct SPP_TRACKER {
+    uint64_t ip;
+    uint64_t last_cl_addr;
+    int64_t last_stride;
+    int64_t stride_history[SPP_HISTORY];
+    uint8_t history_len;
+    uint8_t history_next;
+    uint8_t uniform_confidence;
+    uint8_t pattern_confidence;
+    uint8_t mode; // 1: uniform 2: pattern
+    uint32_t lru;
+
+    SPP_TRACKER() {
+        ip = 0;
+        last_cl_addr = 0;
+        last_stride = 0;
+        history_len = 0;
+        history_next = 0;
+        uniform_confidence = 0;
+        pattern_confidence = 0;
+        mode = 0;
+        lru = 0;
+        for (uint8_t i = 0; i < SPP_HISTORY; ++i)
+            stride_history[i] = 0;
+    }
+};
+
+struct SPP_PREFETCH_RECORD {
+    uint64_t addr;
+    uint8_t valid;
+};
+
+static SPP_TRACKER spp_trackers[SPP_TRACKER_COUNT];
+static SPP_PREFETCH_RECORD spp_prefetch_history[64];
+static uint64_t spp_total_prefetches = 0;
+static uint64_t spp_useful_prefetches = 0;
+static uint32_t spp_degree = SPP_MAX_DEGREE;
+
+static inline uint64_t cl_address(uint64_t addr) {
+    return addr >> LOG2_BLOCK_SIZE;
+}
+
+static inline int64_t signed_stride(uint64_t current, uint64_t previous) {
+    if (current > previous)
+        return (int64_t)(current - previous);
+    return -((int64_t)(previous - current));
+}
+
+static inline bool same_page(uint64_t a, uint64_t b) {
+    return (a >> LOG2_PAGE_SIZE) == (b >> LOG2_PAGE_SIZE);
+}
+
+static inline void mark_prefetch_hit(uint64_t addr) {
+    uint64_t line = cl_address(addr);
+    for (uint32_t i = 0; i < 64; ++i) {
+        if (spp_prefetch_history[i].valid && spp_prefetch_history[i].addr == line) {
+            spp_useful_prefetches++;
+            spp_prefetch_history[i].valid = 0;
+            return;
+        }
+    }
+}
+
+static inline void add_prefetch_record(uint64_t addr) {
+    uint64_t line = cl_address(addr);
+    for (uint32_t i = 0; i < 64; ++i) {
+        if (!spp_prefetch_history[i].valid) {
+            spp_prefetch_history[i].addr = line;
+            spp_prefetch_history[i].valid = 1;
+            return;
+        }
+    }
+    // simple FIFO replacement to keep the table compact and low-overhead
+    for (uint32_t i = 1; i < 64; ++i)
+        spp_prefetch_history[i - 1] = spp_prefetch_history[i];
+    spp_prefetch_history[63].addr = line;
+    spp_prefetch_history[63].valid = 1;
+}
+
+static inline void update_degree_from_accuracy() {
+    if (spp_total_prefetches < 8) {
+        spp_degree = SPP_MAX_DEGREE;
+        return;
+    }
+
+    double accuracy = (double)spp_useful_prefetches / (double)spp_total_prefetches;
+    if (accuracy >= 0.8) {
+        spp_degree = 4;
+    } else if (accuracy >= 0.6) {
+        spp_degree = 3;
+    } else if (accuracy >= 0.35) {
+        spp_degree = 2;
+    } else {
+        spp_degree = 1;
+    }
+}
+
+static inline SPP_TRACKER* find_or_allocate_tracker(uint64_t ip) {
+    for (uint32_t i = 0; i < SPP_TRACKER_COUNT; ++i) {
+        if (spp_trackers[i].ip == ip)
+            return &spp_trackers[i];
+    }
+
+    uint32_t victim = 0;
+    for (uint32_t i = 1; i < SPP_TRACKER_COUNT; ++i) {
+        if (spp_trackers[i].lru > spp_trackers[victim].lru)
+            victim = i;
+    }
+
+    SPP_TRACKER* t = &spp_trackers[victim];
+    t->ip = ip;
+    t->last_cl_addr = 0;
+    t->last_stride = 0;
+    t->history_len = 0;
+    t->history_next = 0;
+    t->uniform_confidence = 0;
+    t->pattern_confidence = 0;
+    t->mode = 0;
+    for (uint8_t i = 0; i < SPP_HISTORY; ++i)
+        t->stride_history[i] = 0;
+    return t;
+}
+
+static inline void update_tracker_lru(SPP_TRACKER* hit_tracker) {
+    uint32_t max_lru = 0;
+    for (uint32_t i = 0; i < SPP_TRACKER_COUNT; ++i) {
+        if (spp_trackers[i].lru > max_lru)
+            max_lru = spp_trackers[i].lru;
+    }
+
+    for (uint32_t i = 0; i < SPP_TRACKER_COUNT; ++i) {
+        if (&spp_trackers[i] == hit_tracker)
+            spp_trackers[i].lru = 0;
+        else
+            spp_trackers[i].lru++;
+    }
+}
+
+static inline bool should_prefetch(uint64_t pf_addr, uint64_t base_addr) {
+    return same_page(pf_addr, base_addr);
+}
+
+static inline void issue_prefetch(CACHE* cache, uint64_t ip, uint64_t base_addr, uint64_t pf_addr) {
+    if (!should_prefetch(pf_addr, base_addr))
+        return;
+
+    if (cache->MSHR.occupancy < (cache->MSHR.SIZE >> 1))
+        cache->prefetch_line(ip, base_addr, pf_addr, FILL_L1, 0);
+    else
+        cache->prefetch_line(ip, base_addr, pf_addr, FILL_L2, 0);
+
+    spp_total_prefetches++;
+    add_prefetch_record(pf_addr);
+}
+
+void CACHE::l1d_prefetcher_initialize() {
     std::cout << "------------------------------------------------" << std::endl;
-    std::cout << "        Stride Pattern Prefetcher (SPP)         " << std::endl;
+    std::cout << "      Stride Pattern Prefetcher (SPP, L1D)       " << std::endl;
     std::cout << "------------------------------------------------" << std::endl;
+    for (uint32_t i = 0; i < SPP_TRACKER_COUNT; ++i) {
+        spp_trackers[i].ip = 0;
+        spp_trackers[i].lru = i;
+    }
+    for (uint32_t i = 0; i < 64; ++i) {
+        spp_prefetch_history[i].addr = 0;
+        spp_prefetch_history[i].valid = 0;
+    }
+    spp_total_prefetches = 0;
+    spp_useful_prefetches = 0;
+    spp_degree = SPP_MAX_DEGREE;
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
 {
-   
+    uint64_t cur_cl = cl_address(addr);
+    if (cur_cl == 0) return;
+
+    mark_prefetch_hit(addr);
+
+    SPP_TRACKER* tracker = find_or_allocate_tracker(ip);
+    if (tracker->last_cl_addr == 0) {
+        tracker->last_cl_addr = cur_cl;
+        tracker->last_stride = 0;
+        tracker->history_len = 0;
+        tracker->history_next = 0;
+        tracker->uniform_confidence = 0;
+        tracker->pattern_confidence = 0;
+        tracker->mode = 0;
+        update_tracker_lru(tracker);
+        return;
+    }
+
+    int64_t stride = signed_stride(cur_cl, tracker->last_cl_addr);
+    if (stride == 0) {
+        update_tracker_lru(tracker);
+        return;
+    }
+
+    tracker->stride_history[tracker->history_next] = stride;
+    tracker->history_next = (tracker->history_next + 1) % SPP_HISTORY;
+    tracker->history_len = std::min((uint8_t)(tracker->history_len + 1), (uint8_t)SPP_HISTORY);
+
+    if (stride == tracker->last_stride) {
+        tracker->uniform_confidence++;
+        tracker->pattern_confidence = 0;
+        tracker->mode = 1;
+    } else {
+        tracker->pattern_confidence++;
+        tracker->uniform_confidence = 0;
+        if (tracker->pattern_confidence >= 2)
+            tracker->mode = 2;
+    }
+
+    update_degree_from_accuracy();
+    int degree = (int)spp_degree;
+
+    if (tracker->mode == 1 && tracker->uniform_confidence >= 1 && tracker->last_stride != 0) {
+        for (int i = 1; i <= degree; ++i) {
+            uint64_t pf_addr = (cur_cl + (tracker->last_stride * (uint64_t)i)) << LOG2_BLOCK_SIZE;
+            issue_prefetch(this, ip, addr, pf_addr);
+        }
+    } else if (tracker->mode == 2 || tracker->history_len >= 2) {
+        uint64_t pattern_base = cur_cl;
+        int64_t recent[SPP_SIGNATURE];
+        int count = 0;
+        for (int i = 0; i < tracker->history_len && count < SPP_SIGNATURE; ++i) {
+            int pos = (tracker->history_next + SPP_HISTORY - 1 - i) % SPP_HISTORY;
+            if (tracker->stride_history[pos] != 0) {
+                recent[count++] = tracker->stride_history[pos];
+            }
+        }
+
+        int64_t next_stride = (count > 0) ? recent[0] : stride;
+        if (next_stride == 0) next_stride = stride;
+        for (int i = 1; i <= degree; ++i) {
+            uint64_t pf_addr = (pattern_base + ((int64_t)i * next_stride)) << LOG2_BLOCK_SIZE;
+            issue_prefetch(this, ip, addr, pf_addr);
+        }
+    }
+
+    tracker->last_cl_addr = cur_cl;
+    tracker->last_stride = stride;
+    update_tracker_lru(tracker);
 }
 
 void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
 {
-	return; //metadata_in;
+    return;
 }
 
-void CACHE::l1d_prefetcher_final_stats()
-{
-
+void CACHE::l1d_prefetcher_final_stats() {
+    std::cout << "CPU " << cpu << " L1D SPP final stats" << std::endl;
+    std::cout << "  Issued prefetches: " << spp_total_prefetches << std::endl;
+    std::cout << "  Useful prefetches: " << spp_useful_prefetches << std::endl;
+    if (spp_total_prefetches > 0)
+        std::cout << "  Accuracy: " << (double)spp_useful_prefetches / (double)spp_total_prefetches << std::endl;
+    else
+        std::cout << "  Accuracy: 0.0" << std::endl;
+    std::cout << "  Current degree: " << spp_degree << std::endl;
 }
