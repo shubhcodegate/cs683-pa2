@@ -7,6 +7,29 @@ This branch contains two task commits:
 
 Together, these changes add the SPP prefetcher and a documented, repeatable Docker-based build workflow for testing it.
 
+## Task 1A: IP-Stride Prefetcher Understanding
+
+The provided IP-stride prefetcher tracks memory behavior per instruction pointer (IP). It first shifts the IP right by masking off all but its lowest eight bits, then searches a 24-entry tracker table for that IP. A new IP replaces the least-recently-used tracker and initializes its last cache-line address and stride. For a tracked IP, it computes the signed distance in cache lines from the previous address. Zero strides do not trigger a prefetch. A prefetch is issued only when the new stride matches the previous stride, which provides basic confidence that the IP is following a constant-stride stream.
+
+After detecting the repeated stride, the prefetcher generates three future addresses at one, two, and three stride steps from the current line. It stops when a candidate would cross the current 4 KiB page. If the MSHR occupancy is below half capacity, it requests an L1 fill; otherwise, it requests an L2 fill. It then updates the tracker's address, stride, and LRU position. Thus, this is a fixed-degree constant-stride predictor: it does not learn repeating sequences of different strides. Masking the IP to eight bits also means distinct instruction pointers can alias to the same tracker.
+
+## Task 1B: SPP Logic
+
+### Intended prediction logic
+
+The assignment's non-uniform requirement calls for predicting a repeating sequence of strides, not just detecting that consecutive strides differ. For each IP, the conceptual design is:
+
+1. Track the most recent cache-line address and derive each new signed stride in cache-line units.
+2. Prefer uniform prediction when the same nonzero stride repeats with sufficient confidence. Generate multiple lookahead addresses using that stride.
+3. If strides stop repeating uniformly, use the recent stride sequence to predict the next stride. Learn which stride follows each sequence, then repeat this process to predict multiple future addresses.
+4. Check every candidate against the current 4 KiB page before issuing it. Avoid crossing the page boundary. Select the fill level based on resource pressure, and update usefulness/accuracy counters so the prefetch degree can be throttled.
+
+### Behavior in this implementation
+
+The current SPP code maintains 64 per-IP trackers, each with an eight-stride circular history, uniform and pattern confidence counters, a mode, and LRU state. Repeated strides select uniform mode. A changed stride raises pattern confidence, and two changes select pattern mode. It tracks up to four recent stride values, but does not use them as a signature lookup: the non-uniform path selects the most recent stride and repeats it for each prefetch degree. Therefore, it does not yet learn or replay a repeating multi-stride sequence such as $(+1,+2,+2,+2,+3)$. It also enters the history-based prediction path once two strides have been recorded, even if pattern mode has not been confirmed. This is an implementation limitation relative to the intended signature-to-next-stride behavior above.
+
+Both prediction paths are constrained to the same page as the demand access. Prefetches target L1 while MSHR occupancy is below half capacity and L2 otherwise. A 64-entry global address history counts a prefetch as useful when that line is later accessed; the cumulative internal useful/issued ratio selects degree 4, 3, 2, or 1 at the configured accuracy thresholds. The LRU tracker table bounds the number of simultaneously tracked IPs.
+
 ## Task 1B Results
 
 Each pair below uses the Task 1A no-prefetch baseline and Task 1B SPP run for the same trace. Both runs used 25M warmup instructions and 25M simulation instructions.
